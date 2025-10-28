@@ -1,34 +1,95 @@
 ---
 title: "EV Power - Lab 4 Project Report"
-format: typst
+format: pdf
 ---
 
-# Example Solution 1
+# Overview: The purpose of this analysis is to investigate **which U.S. states have seen the largest increases in renewable energy use between 2021 and 2023**, and how this may relate to EV adoption. This sub-question helps address our main research question on EV power trends.
 
 ## **Part 0: libraries**
 
 ```{r}
-
+library(tidyverse)
+library(janitor)
+library(stringr)
+library(tigris)
+library(sf)
+library(leaflet)
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: Which U.S. states have seen the largest increases in renewable energy use between 2021 and 2023.
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+# Load and clean datasets
+renew21 <- read_csv("data/renew-use-2021.csv") %>% clean_names() %>% mutate(state = toupper(state))
+renew22 <- read_csv("data/renew-use-2022.csv") %>% clean_names() %>% mutate(state = toupper(state))
+renew23 <- read_csv("data/renew-use-2023.csv") %>% clean_names() %>% mutate(state = toupper(state))
 
+# Convert renewable columns to numeric
+renew21 <- renew21 %>% mutate(renewable_use_2021 = as.numeric(gsub(",", "", renewable_use_2021)))
+renew22 <- renew22 %>% mutate(renewable_use_2022 = as.numeric(gsub(",", "", renewable_use_2022)))
+renew23 <- renew23 %>% mutate(renewable_use_2023 = as.numeric(gsub(",", "", renewable_use_2023)))
+
+# Aggregate totals by state
+renew21_sum <- renew21 %>% group_by(state) %>% summarize(total_renew_2021 = sum(renewable_use_2021, na.rm = TRUE))
+renew22_sum <- renew22 %>% group_by(state) %>% summarize(total_renew_2022 = sum(renewable_use_2022, na.rm = TRUE))
+renew23_sum <- renew23 %>% group_by(state) %>% summarize(total_renew_2023 = sum(renewable_use_2023, na.rm = TRUE))
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+# Join datasets and calculate percent change
+renew_change <- renew21_sum %>%
+  left_join(renew22_sum, by = "state") %>%
+  left_join(renew23_sum, by = "state") %>%
+  mutate(percent_change = ((total_renew_2023 - total_renew_2021) / total_renew_2021) * 100)
 
-```
+# Preview results
+head(renew_change)```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
+# Load all U.S. states as sf
+us_states <- states(cb = TRUE, year = 2021) %>%
+  st_transform(crs = 4326)  # WGS84 for Leaflet
 
+# Prepare your renewable change data
+renew_change <- renew_change %>%
+  mutate(state = toupper(state),
+         region = state.abb[match(toupper(state), state.abb)])  # keep abbreviations
+# Join renewable change data to sf polygons
+us_states_renew <- us_states %>%
+  left_join(renew_change, by = c("STUSPS" = "state"))
+# Define soft color palette
+pal <- colorNumeric("YlGnBu", domain = us_states_renew$percent_change, na.color = "lightgray")
+
+leaflet(us_states_renew) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+    fillColor = ~pal(percent_change),
+    weight = 1,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.8,
+    highlight = highlightOptions(
+      weight = 3,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.9,
+      bringToFront = TRUE
+    ),
+    label = ~paste0(NAME, ": ", round(percent_change, 1), "% increase")
+  ) %>%
+  addLegend(
+    pal = pal,
+    values = ~percent_change,
+    title = "% Increase in Renewable Use",
+    position = "bottomright"
+  )
 ```
