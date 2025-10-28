@@ -93,3 +93,5 @@ leaflet(us_states_renew) %>%
     position = "bottomright"
   )
 ```
+#Analyze
+The map visualization revelas clear regional patterns in renewable energy growth between 2021 and 2023. A few states report near-zero or no growth, but these are often smaller states or those with limited renewable capacity. This hihglights how state-level energy policy and infrastructure investment directly affect renewable growth. Overall, this ananlysis supports the broader research question on EV power trends. States with renewable growth are likley to be better prepared for the increased electricity demand form EV adoption. Expanding clean energy capacities aligns with sustainable EV integration, reducing emissions while meeting higher energy needs. 
